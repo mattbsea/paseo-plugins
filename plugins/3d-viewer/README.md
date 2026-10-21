@@ -81,6 +81,9 @@ These are stated rather than half-done:
   KTX2/Basis textures. Each needs an extra decoder (wasm or worker) and is uncommon for
   mechanical parts. Such files fail with the loader's error.
 - **OBJ materials**: `.mtl` files are not read, so OBJ meshes use the viewer's colour.
+- **GLB files that reference external files** are refused, so the client never fetches
+  anything. Use `.gltf` for external resources; the daemon inlines those, within the same
+  size limit.
 - **PLY point clouds** with no faces are rejected with a message.
 - **3MF extensions**: beam lattices, slices and volumetric data. Colours and base
   materials do display.
@@ -200,6 +203,13 @@ Fixtures and their expected sizes are listed in
   host provides it, using local types written from the public docs. Until 0.13 ships,
   models open from the **3D models** tab or `/view3d`, not by clicking a file in the
   explorer.
+- **The manifest says `>=0.11.1`, not the `>=0.13.0` the docs ask of file-panel plugins.**
+  This is deliberate. The file panel is optional and feature-detected, and declaring
+  0.13 would block installation on every released Paseo.
+- **OpenCascade runs on the plugin process's main thread with no timeout.** While a large
+  STEP or IGES file is being tessellated, other requests from this plugin (the model
+  list, chunk transfers) wait. The 64 MiB CAD limit bounds this, but a pathological file
+  can still take a long time. Moving tessellation to a worker thread would fix it.
 - Workspace panels take no parameters in 0.11/0.12. The file that `/view3d` chooses is
   kept in app memory, so a restored tab starts at the file list.
 - The STEP and STL fixtures were rendered in headless Chromium using the same engine

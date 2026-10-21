@@ -1,0 +1,4 @@
+node_modules/
+.omc/
+*.tgz
+.DS_Store

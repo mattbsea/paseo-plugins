@@ -1,0 +1,12 @@
+{
+  "name": "paseo-plugins",
+  "private": true,
+  "description": "Monorepo for Matt Barclay's Paseo plugins",
+  "workspaces": [
+    "plugins/*"
+  ],
+  "scripts": {
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present"
+  }
+}

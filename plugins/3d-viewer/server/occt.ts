@@ -42,7 +42,7 @@ const PARAMS: OcctParams = {
 
 let modulePromise: Promise<OcctModule> | null = null;
 
-/** Instantiates OpenCascade once per plugin process (about 1 s; the wasm is ~7 MiB). */
+/** Instantiates OpenCascade once per plugin process (~0.15 s measured; the wasm is 7.3 MiB). */
 export function loadOcct(): Promise<OcctModule> {
   modulePromise ??= instantiate().catch((error: unknown) => {
     modulePromise = null;

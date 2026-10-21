@@ -7,7 +7,7 @@ import { CHUNK_BYTES, MAX_CAD_FILE_BYTES, MAX_MESH_FILE_BYTES } from "../shared/
 import { encodeMeshBundle, type BundleMesh } from "../shared/mesh-bundle";
 import type { listModelsRpc, modelChunkRpc, openModelRpc } from "../shared/rpc";
 import { listModels, readModelFile, readSibling, workspaceRoot } from "./files";
-import { inlineGltfResources } from "./gltf";
+import { assertSelfContainedGlb, inlineGltfResources } from "./gltf";
 import { tessellate } from "./occt";
 
 interface Prepared {
@@ -52,7 +52,7 @@ export async function handleList(
 }
 
 export async function handleOpen(
-  { workspaceId, path }: RpcInput<typeof openModelRpc>,
+  { workspaceId, path, includePayload }: RpcInput<typeof openModelRpc>,
   { paseo }: PluginHandlerContext,
 ): Promise<RpcOutput<typeof openModelRpc>> {
   const info = formatForPath(path);
@@ -84,13 +84,14 @@ export async function handleOpen(
       const data = await readSibling(root, file.path, uri, budget);
       budget -= data.length;
       return data;
-    });
+    }, limit);
   } else {
+    if (info.format === "glb") assertSelfContainedGlb(file.bytes);
     payload = file.bytes;
   }
 
   return {
-    token: remember(payload),
+    token: includePayload ? remember(payload) : "",
     path: file.relativePath,
     name: basename(file.path),
     format: info.format,
@@ -98,7 +99,7 @@ export async function handleOpen(
     fileBytes: file.bytes.length,
     modifiedMs: file.modifiedMs,
     payloadBytes: payload.length,
-    chunkCount: Math.max(1, Math.ceil(payload.length / CHUNK_BYTES)),
+    chunkCount: includePayload ? Math.max(1, Math.ceil(payload.length / CHUNK_BYTES)) : 0,
     dimensions,
     triangles,
     conversionMs,

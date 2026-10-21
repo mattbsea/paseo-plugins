@@ -1,5 +1,5 @@
 import { constants, type Dirent } from "node:fs";
-import { open, opendir, readFile, realpath, stat } from "node:fs/promises";
+import { open, opendir, realpath, stat } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import type { PluginHandlerContext } from "@getpaseo/plugin/server";
 import { formatForPath } from "../shared/formats";
@@ -42,9 +42,14 @@ function contains(root: string, target: string): boolean {
  * following symlinks first so a link cannot escape the root.
  */
 export async function resolveInside(root: string, path: string): Promise<string> {
-  const lexical = isAbsolute(path) ? resolve(path) : resolve(root, path);
-  if (!contains(root, lexical)) throw new Error("The file is outside this workspace.");
+  const absolute = isAbsolute(path);
+  const lexical = absolute ? resolve(path) : resolve(root, path);
+  // Absolute paths (file panels) may name the workspace through a symlinked parent, so
+  // only the realpath check below decides for them.
+  if (!absolute && !contains(root, lexical)) throw new Error("The file is outside this workspace.");
   const real = await realpath(lexical).catch((error: NodeJS.ErrnoException) => {
+    // Do not reveal whether paths outside the workspace exist.
+    if (!contains(root, lexical)) throw new Error("The file is outside this workspace.");
     if (error.code === "ENOENT" || error.code === "ENOTDIR") throw new Error(`File not found: ${path}`);
     throw error;
   });
@@ -59,22 +64,37 @@ export interface ReadModel {
   modifiedMs: number;
 }
 
-/** Reads a supported model file inside the workspace, up to maxBytes. */
-export async function readModelFile(root: string, path: string, maxBytes: (size: number) => void): Promise<ReadModel> {
-  const resolved = await resolveInside(root, path);
-  if (!formatForPath(resolved)) throw new Error("This file type is not a supported 3D format.");
-  // O_NONBLOCK so a FIFO is rejected by the isFile check instead of blocking the process;
-  // O_NOFOLLOW so a symlink swapped in after resolveInside is refused.
+/**
+ * Reads a regular file at an already-resolved path. O_NONBLOCK so a FIFO is rejected by
+ * the isFile check instead of hanging a threadpool thread; O_NOFOLLOW so a symlink swapped
+ * in after resolveInside is refused. Reads exactly the size that passed `checkSize`, so a
+ * file growing meanwhile cannot exceed the limit.
+ */
+async function readRegularFile(resolved: string, checkSize: (size: number) => void) {
   const handle = await open(resolved, constants.O_RDONLY | (constants.O_NONBLOCK ?? 0) | (constants.O_NOFOLLOW ?? 0));
   try {
     const info = await handle.stat();
     if (!info.isFile()) throw new Error("Only regular files can be opened.");
-    maxBytes(info.size);
-    const bytes = await handle.readFile();
-    return { path: resolved, relativePath: toPosix(relative(root, resolved)), bytes, modifiedMs: info.mtimeMs };
+    checkSize(info.size);
+    const bytes = new Uint8Array(info.size);
+    let read = 0;
+    while (read < bytes.length) {
+      const { bytesRead } = await handle.read(bytes, read, bytes.length - read, read);
+      if (bytesRead === 0) break;
+      read += bytesRead;
+    }
+    return { bytes: read === bytes.length ? bytes : bytes.subarray(0, read), modifiedMs: info.mtimeMs };
   } finally {
     await handle.close();
   }
+}
+
+/** Reads a supported model file inside the workspace; `checkSize` throws when too large. */
+export async function readModelFile(root: string, path: string, checkSize: (size: number) => void): Promise<ReadModel> {
+  const resolved = await resolveInside(root, path);
+  if (!formatForPath(resolved)) throw new Error("This file type is not a supported 3D format.");
+  const { bytes, modifiedMs } = await readRegularFile(resolved, checkSize);
+  return { path: resolved, relativePath: toPosix(relative(root, resolved)), bytes, modifiedMs };
 }
 
 /** Reads a file a glTF references, constrained to the workspace like the model itself. */
@@ -89,10 +109,10 @@ export async function readSibling(root: string, modelPath: string, uri: string, 
     throw new Error(`glTF resource ${uri} is not a relative path.`);
   }
   const resolved = await resolveInside(root, join(dirname(modelPath), decoded));
-  const info = await stat(resolved);
-  if (!info.isFile()) throw new Error(`glTF resource ${uri} is not a file.`);
-  if (info.size > maxBytes) throw new Error("This glTF file and its resources exceed the viewer's size limit.");
-  return readFile(resolved);
+  const { bytes } = await readRegularFile(resolved, (size) => {
+    if (size > maxBytes) throw new Error("This glTF file and its resources exceed the viewer's size limit.");
+  });
+  return bytes;
 }
 
 /** Breadth-first scan for supported models, skipping hidden and dependency directories. */

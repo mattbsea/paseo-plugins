@@ -1,4 +1,4 @@
-import { cpSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { cpSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { PluginHandlerContext } from "@getpaseo/plugin/server";
@@ -7,6 +7,11 @@ import { decodeMeshBundle, encodeMeshBundle } from "../shared/mesh-bundle";
 import { handleChunk, handleList, handleOpen, measure } from "../server/models";
 import { tessellate } from "../server/occt";
 import { CHUNK_BYTES } from "../shared/limits";
+import { openModelRpc } from "../shared/rpc";
+import { execFileSync } from "node:child_process";
+
+const input = (path: string, includePayload?: boolean) =>
+  openModelRpc.input.parse({ workspaceId: "ws", path, ...(includePayload === undefined ? {} : { includePayload }) });
 
 const fixtures = join(__dirname, "fixtures");
 let workspace: string;
@@ -62,7 +67,7 @@ describe("models.list", () => {
 
 describe("model.open", () => {
   it("tessellates the STEP test part to its real size", async () => {
-    const open = await handleOpen({ workspaceId: "ws", path: "models/test_adapter.step" }, context);
+    const open = await handleOpen(input("models/test_adapter.step"), context);
     expect(open.payload).toBe("mesh-bundle");
     expect(open.dimensions!.x).toBeCloseTo(53, 0);
     expect(open.dimensions!.y).toBeCloseTo(53, 0);
@@ -72,28 +77,72 @@ describe("model.open", () => {
   }, 30_000);
 
   it("accepts absolute paths inside the workspace", async () => {
-    const open = await handleOpen({ workspaceId: "ws", path: join(workspace, "models/cube.obj") }, context);
+    const open = await handleOpen(input(join(workspace, "models/cube.obj")), context);
     expect(open.path).toBe("models/cube.obj");
     expect(Buffer.from(await payload(open)).toString()).toContain("o cube");
   });
 
   it("inlines external glTF buffers", async () => {
-    const open = await handleOpen({ workspaceId: "ws", path: "models/cube-external.gltf" }, context);
+    const open = await handleOpen(input("models/cube-external.gltf"), context);
     const json = JSON.parse(Buffer.from(await payload(open)).toString());
     expect(json.buffers[0].uri).toMatch(/^data:application\/octet-stream;base64,/);
   });
 
   it("refuses paths and symlinks that leave the workspace", async () => {
-    await expect(handleOpen({ workspaceId: "ws", path: "../x.stl" }, context)).rejects.toThrow(/outside/);
-    await expect(handleOpen({ workspaceId: "ws", path: "/etc/x.stl" }, context)).rejects.toThrow(/outside/);
-    await expect(handleOpen({ workspaceId: "ws", path: "escape.stl" }, context)).rejects.toThrow(/outside/);
+    await expect(handleOpen(input("../x.stl"), context)).rejects.toThrow(/outside/);
+    await expect(handleOpen(input("/etc/x.stl"), context)).rejects.toThrow(/outside/);
+    await expect(handleOpen(input("escape.stl"), context)).rejects.toThrow(/outside/);
   });
 
   it("refuses unsupported, missing and mislabelled files", async () => {
-    await expect(handleOpen({ workspaceId: "ws", path: "models/cube-external.bin" }, context)).rejects.toThrow(/not a supported/);
-    await expect(handleOpen({ workspaceId: "ws", path: "models/missing.stl" }, context)).rejects.toThrow(/not found/);
+    await expect(handleOpen(input("models/cube-external.bin"), context)).rejects.toThrow(/not a supported/);
+    await expect(handleOpen(input("models/missing.stl"), context)).rejects.toThrow(/not found/);
     writeFileSync(join(workspace, "fake.step"), "not a step file at all");
-    await expect(handleOpen({ workspaceId: "ws", path: "fake.step" }, context)).rejects.toThrow(/ISO-10303-21/);
+    await expect(handleOpen(input("fake.step"), context)).rejects.toThrow(/ISO-10303-21/);
+  });
+
+  it("keeps nothing for transfer when only metadata is wanted", async () => {
+    const open = await handleOpen(input("models/bracket.brep", false), context);
+    expect(open.token).toBe("");
+    expect(open.chunkCount).toBe(0);
+    expect(open.dimensions!.x).toBeCloseTo(40, 3);
+  });
+
+  it("accepts absolute paths that reach the workspace through a symlinked parent", async () => {
+    const alias = join(mkdtempSync(join(tmpdir(), "viewer-3d-alias-")), "ws");
+    symlinkSync(workspace, alias);
+    const open = await handleOpen(input(join(alias, "models/cube.obj")), context);
+    expect(open.path).toBe("models/cube.obj");
+  });
+
+  it("refuses glTF resources that are FIFOs, outside, or repeated past the size limit", async () => {
+    const gltf = (uris: string[]) =>
+      JSON.stringify({ asset: { version: "2.0" }, buffers: uris.map((uri) => ({ uri, byteLength: 1 })) });
+    execFileSync("mkfifo", [join(workspace, "pipe.bin")]);
+    writeFileSync(join(workspace, "fifo.gltf"), gltf(["pipe.bin"]));
+    await expect(handleOpen(input("fifo.gltf"), context)).rejects.toThrow(/regular files/);
+    writeFileSync(join(workspace, "outside.gltf"), gltf(["../../etc/passwd"]));
+    await expect(handleOpen(input("outside.gltf"), context)).rejects.toThrow(/outside/);
+    // 100 references to a 4 MiB buffer would embed ~530 MiB of base64.
+    writeFileSync(join(workspace, "big.bin"), Buffer.alloc(4 * 1024 * 1024));
+    writeFileSync(join(workspace, "repeat.gltf"), gltf(Array(100).fill("big.bin")));
+    await expect(handleOpen(input("repeat.gltf"), context)).rejects.toThrow(/size limit/);
+  });
+
+  it("refuses GLB files with external resources", async () => {
+    const glb = readFileSync(join(fixtures, "cube.glb"));
+    const jsonLength = glb.readUInt32LE(12);
+    const json = JSON.parse(glb.subarray(20, 20 + jsonLength).toString());
+    json.buffers[0].uri = "elsewhere.bin";
+    const text = Buffer.from(JSON.stringify(json).padEnd(Math.ceil(JSON.stringify(json).length / 4) * 4, " "));
+    const header = Buffer.alloc(20);
+    header.write("glTF", 0);
+    header.writeUInt32LE(2, 4);
+    header.writeUInt32LE(20 + text.length, 8);
+    header.writeUInt32LE(text.length, 12);
+    header.writeUInt32LE(0x4e4f534a, 16);
+    writeFileSync(join(workspace, "external.glb"), Buffer.concat([header, text]));
+    await expect(handleOpen(input("external.glb"), context)).rejects.toThrow(/external files/);
   });
 
   it("reports an expired token", () => {
@@ -106,7 +155,6 @@ describe("OpenCascade", () => {
     ["bracket.igs", "iges"],
     ["bracket.brep", "brep"],
   ] as const)("reads %s as a 40 x 20 x 10 mm block", async (name, format) => {
-    const { readFileSync } = await import("node:fs");
     const meshes = await tessellate(format, new Uint8Array(readFileSync(join(fixtures, name))));
     const { dimensions, triangles } = measure(meshes);
     expect(dimensions.x).toBeCloseTo(40, 3);
@@ -149,7 +197,7 @@ describe("mesh bundle", () => {
     const bytes = Buffer.alloc(84 + triangles * 50);
     bytes.writeUInt32LE(triangles, 80);
     writeFileSync(big, bytes);
-    const open = await handleOpen({ workspaceId: "ws", path: "big.stl" }, context);
+    const open = await handleOpen(input("big.stl"), context);
     expect(open.chunkCount).toBe(3);
     expect((await payload(open)).length).toBe(bytes.length);
   });

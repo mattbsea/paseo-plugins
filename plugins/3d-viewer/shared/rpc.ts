@@ -34,6 +34,8 @@ export const openModelRpc = defineRpc({
     workspaceId: z.string().min(1),
     /** Workspace-relative, or absolute inside the workspace. */
     path: z.string().min(1),
+    /** False when only metadata is wanted (native clients); nothing is kept for transfer. */
+    includePayload: z.boolean().default(true),
   }),
   output: z.object({
     token: z.string(),

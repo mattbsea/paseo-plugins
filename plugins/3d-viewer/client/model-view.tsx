@@ -11,10 +11,13 @@ interface ModelViewProps extends PluginHostProps {
   workspaceId: string;
   path: string;
   onBack?: () => void;
+  /** Bumped by the owner when the file changed on disk; re-reads it. */
+  externalRevision?: number;
 }
 
-export function ModelView({ workspaceId, path, theme, layout, onBack }: ModelViewProps) {
-  const [revision, setRevision] = useState(0);
+export function ModelView({ workspaceId, path, theme, layout, onBack, externalRevision = 0 }: ModelViewProps) {
+  const [reloads, setRevision] = useState(0);
+  const revision = reloads + externalRevision;
   const info = formatForPath(path);
   // Native clients cannot draw, so only CAD files (whose dimensions the daemon measures)
   // are opened there; mesh files are not read at all.
@@ -134,6 +137,11 @@ function WebViewport({
 
   useEffect(() => {
     const current = viewer.current;
+    if (!data) {
+      // A reload is in flight: drop the previous model's numbers and errors.
+      setStats(null);
+      setParseError(null);
+    }
     if (!current || !data) return;
     let cancelled = false;
     setParsing(true);

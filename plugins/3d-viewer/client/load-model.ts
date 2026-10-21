@@ -24,7 +24,7 @@ export function useModel(workspaceId: string, path: string, fetchBytes: boolean,
     enabled,
     refetchOnWindowFocus: false,
     queryFn: async ({ signal }): Promise<LoadedModel> => {
-      const info = await open({ workspaceId, path });
+      const info = await open({ workspaceId, path, includePayload: fetchBytes });
       if (!fetchBytes) return { info, bytes: new Uint8Array(0) };
       const bytes = new Uint8Array(info.payloadBytes);
       let offset = 0;

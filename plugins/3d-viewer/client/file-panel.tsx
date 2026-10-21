@@ -31,5 +31,5 @@ export function ModelFilePanel({ file, ...props }: FilePanelProps) {
   // Re-open the model when it changes on disk, e.g. after re-exporting from CAD.
   const [version, setVersion] = useState(0);
   useEffect(() => file.watch?.((event) => event.type === "changed" && setVersion((value) => value + 1)), [file]);
-  return <ModelView key={version} {...props} path={file.path} />;
+  return <ModelView {...props} path={file.path} externalRevision={version} />;
 }

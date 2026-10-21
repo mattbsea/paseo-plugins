@@ -99,6 +99,9 @@ export function createViewer(container: HTMLElement, initialColors: ViewerColors
   let disposed = false;
   // Each load gets a number; a slower earlier load must not replace a newer model.
   let latestLoad = 0;
+  // Until the user moves the camera, a resize re-frames the model (the panel may have
+  // had no size when the model loaded).
+  let userMoved = false;
 
   function render() {
     if (frame || disposed) return;
@@ -108,6 +111,9 @@ export function createViewer(container: HTMLElement, initialColors: ViewerColors
     });
   }
   controls.addEventListener("change", render);
+  controls.addEventListener("start", () => {
+    userMoved = true;
+  });
 
   function resize() {
     const width = Math.max(1, container.clientWidth);
@@ -115,13 +121,16 @@ export function createViewer(container: HTMLElement, initialColors: ViewerColors
     renderer.setSize(width, height, false);
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
+    if (model && !userMoved) fit();
     render();
   }
   const observer = new ResizeObserver(resize);
   observer.observe(container);
 
   function bounds(): Box3 {
-    return model ? new Box3().setFromObject(model) : new Box3(new Vector3(-50, -50, 0), new Vector3(50, 50, 50));
+    const box = model ? new Box3().setFromObject(model) : new Box3();
+    // No model, or one with no measurable geometry: frame a 100 mm cube.
+    return box.isEmpty() ? new Box3(new Vector3(-50, -50, 0), new Vector3(50, 50, 50)) : box;
   }
 
   function rebuildGrid() {
@@ -140,7 +149,8 @@ export function createViewer(container: HTMLElement, initialColors: ViewerColors
     grid = new GridHelper(cells * cell, cells, new Color(colors.gridMajor), new Color(colors.grid));
     grid.rotation.x = Math.PI / 2;
     const center = box.getCenter(new Vector3());
-    grid.position.set(snap(center.x, cell), snap(center.y, cell), box.min.z);
+    // Slightly below the part so its bottom face does not z-fight with the grid.
+    grid.position.set(snap(center.x, cell), snap(center.y, cell), box.min.z - span * 1e-3);
     scene.add(grid);
   }
 
@@ -187,7 +197,12 @@ export function createViewer(container: HTMLElement, initialColors: ViewerColors
   function disposeModel() {
     if (!model) return;
     scene.remove(model);
-    model.traverse((child) => {
+    disposeObject(model);
+    model = null;
+  }
+
+  function disposeObject(object: Object3D) {
+    object.traverse((child) => {
       if (!(child instanceof Mesh)) return;
       child.geometry.dispose();
       for (const material of Array.isArray(child.material) ? child.material : [child.material]) {
@@ -197,7 +212,6 @@ export function createViewer(container: HTMLElement, initialColors: ViewerColors
         material.dispose();
       }
     });
-    model = null;
   }
 
   function setColors(next: ViewerColors) {
@@ -216,9 +230,14 @@ export function createViewer(container: HTMLElement, initialColors: ViewerColors
     async load(format, payload, bytes) {
       const load = ++latestLoad;
       const object = await parseModel(format, payload, bytes);
-      if (disposed || load !== latestLoad) return measure(object);
+      if (disposed || load !== latestLoad) {
+        const stats = measure(object);
+        disposeObject(object);
+        return stats;
+      }
       disposeModel();
       model = object;
+      userMoved = false;
       scene.add(object);
       applyMaterials();
       rebuildGrid();

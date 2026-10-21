@@ -44,6 +44,18 @@ describe("parseModel", () => {
     expect(stats.triangles).toBeGreaterThanOrEqual(4);
   });
 
+  it("shows PLY vertex colours untinted by the theme", async () => {
+    const object = await parseModel("ply", "file", fixture("cube.ply"));
+    let material: { vertexColors: boolean; color: { getHex(): number }; userData: Record<string, unknown> } | null = null;
+    object.traverse((child) => {
+      const candidate = (child as { material?: typeof material }).material;
+      if (candidate) material = candidate;
+    });
+    expect(material!.vertexColors).toBe(true);
+    expect(material!.color.getHex()).toBe(0xffffff);
+    expect(Object.keys(material!.userData)).toHaveLength(0);
+  });
+
   it("builds daemon mesh bundles with per-face colours", async () => {
     const bundle = encodeMeshBundle([
       {

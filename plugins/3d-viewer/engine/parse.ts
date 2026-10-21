@@ -32,6 +32,13 @@ export interface ModelStats {
 /** Marks materials the viewer created, so it may recolour them with the theme. */
 export const DEFAULT_MATERIAL = "viewer3d.default";
 
+/** White, untagged material so per-vertex colours show unchanged. */
+export function vertexColorMaterial(): MeshStandardMaterial {
+  const material = defaultMaterial(new Color(1, 1, 1));
+  material.vertexColors = true;
+  return material;
+}
+
 export function defaultMaterial(color?: Color): MeshStandardMaterial {
   const material = new MeshStandardMaterial({
     color: color ?? new Color(0.7, 0.7, 0.72),
@@ -62,10 +69,9 @@ async function parseFile(format: ModelFormat, bytes: Uint8Array): Promise<Object
   switch (format) {
     case "stl": {
       const geometry = new STLLoader().parse(arrayBuffer(bytes));
-      const material = defaultMaterial();
       // Binary STL may carry per-face colours (VisCAM/SolidView convention).
-      if ((geometry as BufferGeometry & { hasColors?: boolean }).hasColors) material.vertexColors = true;
-      return new Mesh(geometry, material);
+      const colored = (geometry as BufferGeometry & { hasColors?: boolean }).hasColors;
+      return new Mesh(geometry, colored ? vertexColorMaterial() : defaultMaterial());
     }
     case "ply": {
       const geometry = new PLYLoader().parse(arrayBuffer(bytes));
@@ -74,18 +80,14 @@ async function parseFile(format: ModelFormat, bytes: Uint8Array): Promise<Object
         throw new Error("This PLY file is a point cloud; the viewer shows triangle meshes only.");
       }
       if (!geometry.attributes.normal) geometry.computeVertexNormals();
-      const material = defaultMaterial();
-      if (geometry.attributes.color) material.vertexColors = true;
-      return new Mesh(geometry, material);
+      return new Mesh(geometry, geometry.attributes.color ? vertexColorMaterial() : defaultMaterial());
     }
     case "obj": {
       const object = new OBJLoader().parse(utf8(bytes));
       // Without its .mtl the loader assigns placeholder materials; use the viewer's.
       object.traverse((child) => {
         if (child instanceof Mesh) {
-          const colored = !!child.geometry.attributes.color;
-          child.material = defaultMaterial();
-          if (colored) (child.material as MeshStandardMaterial).vertexColors = true;
+          child.material = child.geometry.attributes.color ? vertexColorMaterial() : defaultMaterial();
           if (!child.geometry.attributes.normal) child.geometry.computeVertexNormals();
         }
       });

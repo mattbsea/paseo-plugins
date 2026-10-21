@@ -6,6 +6,9 @@
 | --- | --- | --- |
 | [3d-viewer](plugins/3d-viewer) | `viewer-3d` | Opens STL, STEP, 3MF, OBJ, PLY, glTF, IGES and BREP models in a workspace tab, with bounding-box dimensions in mm |
 
+Plugins are trusted, unsandboxed code: their daemon side runs with your user's access on
+the daemon machine. Read a plugin's README and source before installing it.
+
 ## Layout
 
 ```text
@@ -38,8 +41,7 @@ paseo plugin add git:mattbsea/paseo-plugins:plugins/<name> --ref <ref>
 ```
 
 Keep the `git:` prefix. Without it, Paseo reads `mattbsea/paseo-plugins` as an ID in the
-public plugin registry. This repository is private, so the daemon host needs read access
-to it, for example through an SSH key or a Git credential helper.
+public plugin registry. These plugins are not listed in that registry.
 
 You can also paste `git:mattbsea/paseo-plugins:plugins/<name>` into **Settings → Plugins →
 Plugin source**. **Enable plugins** must be on for that daemon.

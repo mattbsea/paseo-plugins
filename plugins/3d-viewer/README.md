@@ -18,9 +18,7 @@ paseo plugin add git:mattbsea/paseo-plugins --path plugins/3d-viewer
 paseo plugin add git:mattbsea/paseo-plugins:plugins/3d-viewer --ref feat/3d-viewer
 ```
 
-The repository is private, so the daemon host needs Git access to it, for example through
-an SSH key or a credential helper. The `git:` prefix is required: a bare `owner/name` is a
-registry ID. The install runs no package manager and needs no network beyond the Git
+The `git:` prefix is required: a bare `owner/name` is a registry ID. The install runs no package manager and needs no network beyond the Git
 fetch. See [Bundled dependencies](#bundled-dependencies).
 
 Requires Paseo 0.11.1 or later for both the daemon and the app.

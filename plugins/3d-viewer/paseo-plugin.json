@@ -1,0 +1,9 @@
+{
+  "id": "viewer-3d",
+  "name": "3D model viewer",
+  "description": "View STL, STEP, 3MF, OBJ, PLY, glTF, IGES and BREP models from the workspace with bounding-box dimensions in millimetres",
+  "media": [],
+  "requirements": {
+    "paseo": ">=0.11.1"
+  }
+}

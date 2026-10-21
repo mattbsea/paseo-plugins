@@ -1,0 +1,40 @@
+{
+  "name": "@mattbsea/paseo-viewer-3d",
+  "private": true,
+  "version": "0.0.0",
+  "files": [
+    "paseo-plugin.json",
+    "OVERVIEW.md",
+    "README.md",
+    "THIRD_PARTY_NOTICES.md",
+    "index.client.tsx",
+    "index.server.ts",
+    "client/",
+    "server/",
+    "shared/"
+  ],
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.server.json && tsc -p tsconfig.dev.json",
+    "test": "vitest run && node scripts/build-vendor.mjs --check",
+    "build:vendor": "node scripts/build-vendor.mjs",
+    "check:vendor": "node scripts/build-vendor.mjs --check",
+    "check:paseo-compile": "node scripts/paseo-compile-check.mjs"
+  },
+  "devDependencies": {
+    "@getpaseo/plugin": "0.11.1",
+    "@tanstack/react-query": "^5.90.11",
+    "@types/node": "^22.20.5",
+    "@types/react": "~19.2.0",
+    "@types/three": "^0.186.0",
+    "esbuild": "^0.28.2",
+    "jsdom": "^30.1.3",
+    "occt-import-js": "^0.0.23",
+    "react": "19.1.0",
+    "react-native": "0.81.5",
+    "three": "^0.186.1",
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.5",
+    "zod": "^4.4.3"
+  },
+  "description": "View STL, STEP, 3MF, OBJ, PLY, glTF, IGES and BREP models in a Paseo workspace tab"
+}

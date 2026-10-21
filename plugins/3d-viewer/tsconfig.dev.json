@@ -1,0 +1,6 @@
+{
+  "$comment": "Development only: the three.js engine (bundled into client/vendor/) and tests. Never compiled by Paseo.",
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "lib": ["ES2023", "DOM", "DOM.Iterable"], "types": ["node"] },
+  "include": ["engine/**/*.ts", "shared/**/*.ts", "server/**/*.ts", "test/**/*.ts"]
+}

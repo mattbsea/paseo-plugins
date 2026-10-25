@@ -1,11 +1,30 @@
-import type { PluginClientContext } from "@getpaseo/plugin/client";
+import type { PluginClientContext, PluginSidebarItemProps } from "@getpaseo/plugin/client";
+import { SidebarRow } from "@getpaseo/plugin/client/ui";
 import { type AddFilePanel, ModelFilePanel } from "./client/file-panel";
 import { MODELS_PANEL_ID, ModelsPanel } from "./client/models-panel";
+import { createModelsScreen, MODELS_SCREEN_ID, modelsScreenTarget } from "./client/models-screen";
 import { selectModel } from "./client/selection";
 import { MODEL_EXTENSIONS } from "./shared/formats";
 
+function ModelsSidebarItem({ currentScreen, openScreen }: PluginSidebarItemProps) {
+  return (
+    <SidebarRow
+      icon="Box"
+      active={currentScreen?.screenId === MODELS_SCREEN_ID}
+      onPress={() => openScreen(modelsScreenTarget())}
+    />
+  );
+}
+
 export default function contribute(client: PluginClientContext) {
   const removers = [
+    // Sidebar row beside History, Schedules and Search; opens a full-page screen.
+    client.addScreen({
+      id: MODELS_SCREEN_ID,
+      title: "3D models",
+      Component: createModelsScreen((input) => client.openScreen(input)),
+    }),
+    client.addSidebarHeaderItem({ id: "models", title: "3D models", Component: ModelsSidebarItem }),
     client.addWorkspacePanel({
       id: MODELS_PANEL_ID,
       title: "3D models",

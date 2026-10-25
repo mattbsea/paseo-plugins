@@ -25,6 +25,10 @@ Requires Paseo 0.11.1 or later for both the daemon and the app.
 
 ## Use it
 
+- **Sidebar → 3D models**, in the list with History, Schedules and Search, opens a
+  full-page screen. Pick a workspace, then a model. The screen remembers the workspace
+  in its URL and for the next press. You can reorder or hide the row in
+  Settings → Sidebar.
 - **⌘K / Ctrl+K → "Open 3D model viewer"** opens the **3D models** tab for the current
   workspace. It lists every supported file in the workspace. Hidden directories,
   `node_modules`, `dist`, `build`, `out`, `target` and `venv` are skipped. Pick a file to

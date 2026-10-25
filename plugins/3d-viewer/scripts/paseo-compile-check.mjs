@@ -63,8 +63,8 @@ try {
   const clientRequire = (name) => (name === "zod" || name === "@getpaseo/plugin" ? daemonRequire(name) : stubModule);
   const clientExports = (0, eval)(clientBundle)(clientRequire);
   for (const [host, methods] of [
-    ["0.11 host", ["addWorkspacePanel", "addCommandCenterItem", "addSlashCommand"]],
-    ["0.13 host", ["addWorkspacePanel", "addCommandCenterItem", "addSlashCommand", "addFilePanel"]],
+    ["0.11 host", ["addScreen", "addSidebarHeaderItem", "addWorkspacePanel", "addCommandCenterItem", "addSlashCommand"]],
+    ["0.13 host", ["addScreen", "addSidebarHeaderItem", "addWorkspacePanel", "addCommandCenterItem", "addSlashCommand", "addFilePanel"]],
   ]) {
     const registrations = [];
     const context = Object.fromEntries(

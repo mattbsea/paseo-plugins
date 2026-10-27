@@ -5,6 +5,7 @@
 | Plugin | ID | What it does |
 | --- | --- | --- |
 | [3d-viewer](plugins/3d-viewer) | `viewer-3d` | Opens STL, STEP, 3MF, OBJ, PLY, glTF, IGES and BREP models in a workspace tab, with bounding-box dimensions in mm |
+| [cross-daemon](plugins/cross-daemon) | `cross-daemon` | Lets agents on different Paseo daemons list, message, start and archive each other (copied from maxwell-01's plugin) |
 
 Plugins are trusted, unsandboxed code: their daemon side runs with your user's access on
 the daemon machine. Read a plugin's README and source before installing it.
@@ -59,7 +60,7 @@ regardless of the `--ref` used to install.
 ## Develop
 
 ```bash
-npm install          # once, at the repository root
+npm install          # once, at the repository root (.npmrc sets legacy-peer-deps)
 npm run typecheck    # every plugin
 npm test             # every plugin
 ```

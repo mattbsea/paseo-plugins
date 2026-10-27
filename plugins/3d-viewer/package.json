@@ -21,7 +21,9 @@
     "check:paseo-compile": "node scripts/paseo-compile-check.mjs"
   },
   "devDependencies": {
+    "@getpaseo/client": "0.11.1",
     "@getpaseo/plugin": "0.11.1",
+    "@getpaseo/protocol": "0.11.1",
     "@tanstack/react-query": "^5.90.11",
     "@types/node": "^22.20.5",
     "@types/react": "~19.2.0",
@@ -33,6 +35,7 @@
     "react-native": "0.81.5",
     "three": "^0.186.1",
     "typescript": "^5.9.3",
+    "vite": "^8.3.5",
     "vitest": "^5.0.5",
     "zod": "^4.4.3"
   },

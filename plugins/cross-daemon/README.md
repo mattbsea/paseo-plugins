@@ -1,7 +1,9 @@
 # Cross-daemon
 
 A [Paseo](https://paseo.sh) plugin that lets agents on different Paseo daemons list, message, start
-and archive each other. Requires **Paseo 0.9.2 or newer**, installed on every daemon that takes part.
+and archive each other. Requires **Paseo 0.12** (0.12.0 up to, not including, 0.13), installed on every daemon that takes part.
+Paseo refuses to load the plugin on any other version, because it runs the Paseo CLI that ships with the
+daemon and loads some of the daemon's own modules, and those change between releases.
 
 ## Switching a daemon on
 
@@ -139,6 +141,7 @@ MIT.
 
 ## Provenance
 
-Copied as-is, with no code changes, from
+Copied from
 [mattbsea/maxs-paseo-plugins](https://github.com/mattbsea/maxs-paseo-plugins) (`cross-daemon/`,
-commit `2878791`, version 0.5.0). Upstream author: maxwell-01. Licensed MIT; see `LICENSE`.
+commit `2878791`, version 0.5.0), then updated for Paseo 0.12 (version 0.5.1). Upstream author: maxwell-01.
+Licensed MIT; see `LICENSE`.

@@ -39,6 +39,10 @@ export interface PaseoCli {
   runLocal(args: readonly string[], options?: PaseoCliOptions): Promise<string>;
 }
 
+// Every live agent, in any workspace: since 0.12 a plain `paseo ls` leaves out agents in background
+// workspaces (those made on behalf of another agent), which would still be working in the folder.
+export const LIST_LIVE_AGENTS = ["ls", "--global", "--background", "--json"] as const;
+
 // Null means this daemon: a notice to the agent that sent a message.
 export type Daemon = Peer | null;
 
@@ -79,15 +83,22 @@ function runPaseo(cli: PaseoCliCommand, args: readonly string[], env: NodeJS.Pro
   );
 }
 
+// Since 0.12 the CLI reads PASEO_AGENT_ID as "the agent calling me": send stamps the message as sent by
+// that agent (and fails on a host too old to record it), and workspace and agent creation take it as
+// their caller. The plugin has no such caller, so no call may inherit one from the daemon's environment.
+function withoutCaller(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  const { PASEO_AGENT_ID: _caller, ...rest } = env;
+  return rest;
+}
+
 export function createPaseoCli(cli: PaseoCliCommand, timeoutMs = CLI_TIMEOUT_MS): PaseoCli {
   return {
     run(link, args, options) {
-      const env = { ...process.env };
-      delete env.PASEO_PASSWORD;
+      const { PASEO_PASSWORD: _password, ...env } = withoutCaller(process.env);
       return runPaseo(cli, ["--host", link, ...args], env, timeoutMs, options);
     },
     runLocal(args, options) {
-      return runPaseo(cli, ["--home", cli.home, ...args], process.env, timeoutMs, options);
+      return runPaseo(cli, ["--home", cli.home, ...args], withoutCaller(process.env), timeoutMs, options);
     },
   };
 }

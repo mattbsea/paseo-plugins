@@ -25,7 +25,7 @@ describe("create_agent", () => {
     expect(t.runs).toHaveLength(1);
     expect(t.runs[0].slice(0, -1)).toEqual([
       "run",
-      "--background",
+      "--no-wait",
       "--json",
       "--workspace=wks-1",
       "--mode=auto",
@@ -52,7 +52,7 @@ describe("create_agent", () => {
     t.putWorkspace("wks-home", "/Users/max");
     await t.create();
     expect(t.workspaceCommands).toEqual([["workspace", "ls", "--json"]]);
-    expect(t.runs[0].slice(0, -1)).toEqual(["run", "--background", "--json", "--workspace=wks-home", "--mode=auto", "--"]);
+    expect(t.runs[0].slice(0, -1)).toEqual(["run", "--no-wait", "--json", "--workspace=wks-home", "--mode=auto", "--"]);
   });
 
   it("does not use a workspace for a different folder, even one inside it", async () => {
@@ -219,6 +219,15 @@ describe("archive_agent", () => {
     await t.create({ cwd: folder, notifyOnFinish: false });
     t.finish("mac", "new-1", "Done.");
     t.put("mac", "maxs-session", "idle", folder);
+    expect((await t.archive("new-1")).text).toContain("Kept workspace wks-1");
+    expect(t.workspaces.get("wks-1")?.archived).toBe(false);
+  });
+
+  it("keeps the workspace it made while an agent in a background workspace is in the same folder", async () => {
+    const t = setup();
+    await t.create({ notifyOnFinish: false });
+    t.finish("mac", "new-1", "Done.");
+    t.putBackground("mac", "helper", "running", "/Users/max");
     expect((await t.archive("new-1")).text).toContain("Kept workspace wks-1");
     expect(t.workspaces.get("wks-1")?.archived).toBe(false);
   });

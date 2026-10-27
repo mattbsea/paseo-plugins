@@ -16,6 +16,8 @@ interface FakeAgent {
   lastText: string;
   cwd: string;
   archived: boolean;
+  // In a background workspace, which `paseo ls` leaves out unless given --background.
+  background?: boolean;
 }
 
 // Agents on the remote daemon and on this one, driven through the same commands the CLI offers.
@@ -55,7 +57,7 @@ export function fakeDaemons() {
     const [command, agentId] = args;
     if (command === "workspace") return handleWorkspace(args);
     if (command === "ls") {
-      const live = [...agents].filter(([key, agent]) => key.startsWith(`${where}/`) && !agent.archived);
+      const live = [...agents].filter(([key, agent]) => key.startsWith(`${where}/`) && !agent.archived && (!agent.background || args.includes("--background")));
       const home = process.env.HOME!;
       const shorten = (cwd: string) => (cwd.startsWith(home) ? `~${cwd.slice(home.length)}` : cwd);
       return JSON.stringify(live.map(([key, { status, cwd }]) => ({ id: key.slice(where.length + 1), status, cwd: shorten(cwd) })));
@@ -97,6 +99,8 @@ export function fakeDaemons() {
   };
   const put = (where: Where, agentId: string, status: string, cwd = "/elsewhere") =>
     agents.set(`${where}/${agentId}`, { status, updatedAt: "2020-01-01T00:00:00.000Z", lastText: "", cwd, archived: false });
+  const putBackground = (where: Where, agentId: string, status: string, cwd: string) =>
+    agents.set(`${where}/${agentId}`, { status, updatedAt: "2020-01-01T00:00:00.000Z", lastText: "", cwd, archived: false, background: true });
   const putWorkspace = (workspaceId: string, cwd: string) => workspaces.set(workspaceId, { cwd, archived: false });
   const finish = (where: Where, agentId: string, lastText: string) =>
     Object.assign(agents.get(`${where}/${agentId}`)!, { status: "idle", updatedAt: new Date().toISOString(), lastText });
@@ -109,6 +113,7 @@ export function fakeDaemons() {
     workspaces,
     workspaceCommands,
     put,
+    putBackground,
     putWorkspace,
     finish,
     setStatus,

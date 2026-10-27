@@ -3,7 +3,7 @@ import type { Peer } from "../shared/cross-daemon.shared";
 import { randomBytes } from "node:crypto";
 import type { AgentLifecycle, WorkspaceCleanup } from "./agent-lifecycle.server";
 import { describeError, MaybeDeliveredError, type Messenger } from "./messenger.server";
-import type { PaseoCli } from "./paseo-cli.server";
+import { LIST_LIVE_AGENTS, type PaseoCli } from "./paseo-cli.server";
 
 export interface DaemonIdentity {
   name: string;
@@ -161,7 +161,7 @@ export function createTools(deps: ToolDependencies): Tools {
       name: "list_agents",
       description: "List the agents on another Paseo daemon, with their status and folder.",
       input: z.object({ daemon: daemonInput }),
-      run: ({ daemon }) => onPeer(daemon, ["ls", "--global", "--json"]),
+      run: ({ daemon }) => onPeer(daemon, LIST_LIVE_AGENTS),
     }),
     defineTool({
       name: "get_agent_activity",

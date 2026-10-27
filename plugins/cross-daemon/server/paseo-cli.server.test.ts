@@ -30,6 +30,31 @@ describe("createPaseoCli", () => {
     }
   });
 
+  it("does not present itself as an agent of this daemon", async () => {
+    const saved = process.env.PASEO_AGENT_ID;
+    process.env.PASEO_AGENT_ID = "agent-that-started-the-daemon";
+    const cli = fakePaseo("process.stdout.write(String(process.env.PASEO_AGENT_ID));");
+    try {
+      await expect(cli.run("https://app.paseo.sh/#offer=bWFj", [])).resolves.toBe("undefined");
+      await expect(cli.runLocal([])).resolves.toBe("undefined");
+    } finally {
+      if (saved === undefined) delete process.env.PASEO_AGENT_ID;
+      else process.env.PASEO_AGENT_ID = saved;
+    }
+  });
+
+  it("keeps the rest of this daemon's environment for its own agents", async () => {
+    const saved = process.env.PASEO_PASSWORD;
+    process.env.PASEO_PASSWORD = "local-secret";
+    const cli = fakePaseo("process.stdout.write(String(process.env.PASEO_PASSWORD));");
+    try {
+      await expect(cli.runLocal([])).resolves.toBe("local-secret");
+    } finally {
+      if (saved === undefined) delete process.env.PASEO_PASSWORD;
+      else process.env.PASEO_PASSWORD = saved;
+    }
+  });
+
   it("says a call timed out when it had to be stopped", async () => {
     const cli = fakePaseo("setTimeout(() => {}, 10_000);", 200);
     await expect(cli.run("https://app.paseo.sh/#offer=bWFj", [])).rejects.toThrow("timed out after 0.2 s");

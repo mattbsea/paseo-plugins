@@ -58,7 +58,7 @@ describe("tools that reach another daemon", () => {
   it("lists every agent on another daemon, not only those in one folder", async () => {
     const { tools, calls } = toolsWith([mac]);
     await tools.call("list_agents", { daemon: "mac" }, caller);
-    expect(calls[0].args).toEqual(["ls", "--global", "--json"]);
+    expect(calls[0].args).toEqual(["ls", "--global", "--background", "--json"]);
   });
 
   it("reads an agent's recent activity on another daemon", async () => {

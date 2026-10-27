@@ -3,13 +3,14 @@ import { z } from "zod";
 import type { Peer } from "../shared/cross-daemon.shared";
 import { inspectAgent } from "./agent-state.server";
 import { CUT_OFF, describeError, MaybeDeliveredError } from "./messenger.server";
-import { type PaseoCli, runJson } from "./paseo-cli.server";
+import { LIST_LIVE_AGENTS, type PaseoCli, runJson } from "./paseo-cli.server";
 import { type StartedAgents, type Workspace, workspaceSchema } from "./started-agents.server";
 import type { WatchList } from "./watch-list.server";
 
 const runResultSchema = z.object({ agentId: z.string(), status: z.string(), cwd: z.string() });
 const liveAgentSchema = z.object({ cwd: z.string() });
-// paseo ls returns one page of at most this many agents.
+// paseo ls reads the daemon in pages of this many agents. From 0.12 it reads them all, so a full count
+// no longer means a cut-off list; the check keeps the workspace in that case, as it always has.
 const AGENT_LIST_PAGE = 200;
 
 interface NewAgent {
@@ -81,7 +82,7 @@ export function createAgentLifecycle({ cli, watches, startedAgents }: AgentLifec
     const { workspaceId, isMadeNow, created } = await workspaceFor(peer, posix.resolve(agent.cwd));
     // Options in --name=value form and the prompt after "--", so no value can be read as an option.
     // An explicit --workspace keeps the new agent out of any caller workspace the CLI would otherwise pick.
-    const args = ["run", "--background", "--json", `--workspace=${workspaceId}`, `--mode=${agent.mode}`];
+    const args = ["run", "--no-wait", "--json", `--workspace=${workspaceId}`, `--mode=${agent.mode}`];
     if (agent.provider) args.push(`--provider=${agent.provider}`);
     if (agent.title) args.push(`--title=${agent.title}`);
     let output: string;
@@ -116,7 +117,7 @@ export function createAgentLifecycle({ cli, watches, startedAgents }: AgentLifec
   // paseo workspace archive also archives every agent in the workspace.
   async function archiveCreatedWorkspace(peer: Peer, { workspaceId, cwd }: Workspace): Promise<WorkspaceCleanup> {
     try {
-      const liveAgents = await runJson(cli, peer, ["ls", "--global", "--json"], z.array(liveAgentSchema));
+      const liveAgents = await runJson(cli, peer, LIST_LIVE_AGENTS, z.array(liveAgentSchema));
       if (liveAgents.length >= AGENT_LIST_PAGE) return { kind: "unchecked", workspaceId };
       const isInFolder = (live: { cwd: string }) => live.cwd === cwd || live.cwd === asPaseoLsShows(cwd);
       if (liveAgents.some(isInFolder)) return { kind: "in-use", workspaceId, cwd };
